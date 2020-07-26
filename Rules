@@ -1,0 +1,710 @@
+variables
+{
+	global:
+		0: InfectedList
+		1: IsHuntingTime
+		2: ArePlayersLoaded
+		4: TeleporterPositionsArray
+		26: EndOfRound
+		27: CreateEffectLooper
+		28: CreateEffectSubLooper
+		29: CreateEffectReadyToRun
+		30: TestyourValues
+		31: Round1End
+		32: testerx
+		33: testery
+		34: testerz
+		35: Round2End
+
+	player:
+		4: IsTransformed
+		10: DmgMultiplier
+		19: PlayerInSight
+		26: DeathTimer
+		27: HasSerum
+		28: OrbEffect
+		29: PlayerHero
+		30: TeleportVar
+		31: RuinsToLightHouseLooper
+}
+
+rule("Disable Inspector Recording")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Inspector Recording;
+	}
+}
+
+rule("Setup Essential Global Vars")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.TeleporterPositionsArray = Array(Array(Vector(113.964, 59.919, -158.608), Vector(29.427, 56.916, -156.825), Vector(-63.391,
+			60.864, -159.426)), Array(Vector(290.218, -25.038, -88.687), Vector(358.525, -26.091, -51.489), Vector(336.230, -25.041,
+			22.872)), Array(Vector(-164.374, -5.543, -68.698), Vector(-199.850, 0.564, -7.889), Vector(-261.618, -5.541, 27.725)));
+		Global.CreateEffectReadyToRun = True;
+	}
+}
+
+rule("Disable built in respawning")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Respawning(Event Player);
+	}
+}
+
+rule("Disable built in game mode completion")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Completion;
+	}
+}
+
+rule("Disable announcer")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Announcer;
+	}
+}
+
+rule("Disable built in game mode scoring")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Disable Built-In Game Mode Scoring;
+	}
+}
+
+rule("Instant playing")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is In Setup == True;
+	}
+
+	actions
+	{
+		Set Match Time(0);
+	}
+}
+
+rule("Instant playing 2")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Is Assembling Heroes == True;
+	}
+
+	actions
+	{
+		Set Match Time(0);
+	}
+}
+
+rule("[TESTING] Fly around")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+	}
+
+	actions
+	{
+		Event Player.TeleportVar = Facing Direction Of(Event Player);
+		Teleport(Event Player, Event Player + Facing Direction Of(Event Player) * 12);
+		Set Facing(Event Player, Event Player.TeleportVar, To World);
+	}
+}
+
+rule("Are Players Loaded [TEST CHANGE]")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Count Of(All Players(Team 1)) == 6;
+	}
+
+	actions
+	{
+		Global.ArePlayersLoaded = True;
+	}
+}
+
+rule("[TESTING] Force Infected Selection")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.ArePlayersLoaded == True;
+	}
+
+	actions
+	{
+		Global.InfectedList = All Players(Team 1);
+	}
+}
+
+rule("[TESTING] Perma Hunting Time")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.IsHuntingTime = True;
+	}
+}
+
+disabled rule("Infected selection")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	conditions
+	{
+		Global.ArePlayersLoaded == True;
+	}
+
+	actions
+	{
+		Global.InfectedList = Array Slice(Randomized Array(All Players(Team 1)), 0, 2);
+	}
+}
+
+rule("Player Var Setup")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.ArePlayersLoaded == True;
+		Has Spawned(Event Player) == True;
+	}
+
+	actions
+	{
+		Event Player.PlayerHero = Hero Of(Event Player);
+	}
+}
+
+rule("Show HUD Infected/Innocent Status")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		If(Array Contains(Global.InfectedList, Event Player));
+			Create HUD Text(Event Player, Custom String("You are Infected!"), Null, Null, Top, 0, Red, Red, Red, Visible To and String,
+				Default Visibility);
+		Else;
+			Create HUD Text(Event Player, Custom String("You Are Innocent"), Null, Null, Top, 0, Lime Green, Lime Green, Lime Green,
+				Visible To and String, Default Visibility);
+	}
+}
+
+rule("Show Infected icons to Infected (CHANGEME)")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Array Contains(Global.InfectedList, Event Player) == True;
+	}
+
+	actions
+	{
+		Create Icon(Global.InfectedList, Event Player, Radioactive, Visible To and Position, Red, True);
+	}
+}
+
+rule("--------------------------ENRAGE LOGIC STARTS HERE-------------------------------------------------")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Enrage()")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Using Ultimate(Event Player) == True;
+		Array Contains(Global.InfectedList, Event Player) == True;
+		Global.IsHuntingTime == True;
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Hero(Winston));
+		Press Button(Event Player, Ultimate);
+		Wait(0.250, Ignore Condition);
+		Event Player.IsTransformed = True;
+	}
+}
+
+rule("~Enrage()")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.IsTransformed == True;
+		Is Using Ultimate(Event Player) == False;
+	}
+
+	actions
+	{
+		Start Forcing Player To Be Hero(Event Player, Event Player.PlayerHero);
+		Event Player.IsTransformed = False;
+	}
+}
+
+rule("--------------------------FRIENDLY FIRE LOGIC--------------------------------------------------")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("SetEnemyPlayerContinuous()")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	actions
+	{
+		Wait(0.016, Ignore Condition);
+		Event Player.PlayerInSight = Ray Cast Hit Player(Eye Position(Event Player), Facing Direction Of(Event Player)
+			* 1000 + Eye Position(Event Player), All Players(All Teams), Event Player, False);
+		Loop;
+	}
+}
+
+rule("Headshot Multiplier")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Distance Between(Eye Position(Event Player) + Facing Direction Of(Event Player) * Distance Between(Eye Position(Event Player),
+			Eye Position(Event Player.PlayerInSight)), Eye Position(Event Player.PlayerInSight)) < 0.150;
+	}
+
+	actions
+	{
+		Event Player.DmgMultiplier = 2;
+	}
+}
+
+rule("Normal Multiplier")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Distance Between(Eye Position(Event Player) + Facing Direction Of(Event Player) * Distance Between(Eye Position(Event Player),
+			Eye Position(Event Player.PlayerInSight)), Eye Position(Event Player.PlayerInSight)) >= 0.150;
+	}
+
+	actions
+	{
+		Event Player.DmgMultiplier = 1;
+	}
+}
+
+rule("Soldier Damage")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Firing Primary(Event Player) == True;
+		Hero Of(Event Player) == Hero(Soldier: 76);
+	}
+
+	actions
+	{
+		Damage(Event Player.PlayerInSight, Event Player, 20 * Event Player.DmgMultiplier);
+		Wait(0.111, Abort When False);
+		Loop;
+	}
+}
+
+rule("--------------------------END OF FRIENDLY FIRE LOGIC--------------------------------------")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+}
+
+rule("Custom Death Setup")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Dummy Bot(Event Player) == False;
+	}
+
+	actions
+	{
+		Set Status(Event Player, Null, Unkillable, 9999);
+	}
+}
+
+rule("Need Revive Mode")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Health(Event Player) == 1;
+		Is Dummy Bot(Event Player) == False;
+	}
+
+	actions
+	{
+		Set Status(Event Player, Null, Asleep, 9999);
+		Set Status(Event Player, Null, Invincible, 9999);
+		Chase Player Variable Over Time(Event Player, DeathTimer, 100, 10, Destination and Duration);
+	}
+}
+
+rule("Revive Logic")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is Button Held(Event Player, Interact) == True;
+		Event Player.HasSerum == True;
+	}
+
+	actions
+	{
+		If(Has Status(Closest Player To(Event Player, Team 1), Asleep) && Distance Between(Closest Player To(Event Player, Team 1),
+			Event Player) < 2);
+			Stop Chasing Player Variable(Closest Player To(Event Player, Team 1), DeathTimer);
+			Clear Status(Closest Player To(Event Player, Team 1), Asleep);
+			Clear Status(Closest Player To(Event Player, Team 1), Invincible);
+			Closest Player To(Event Player, Team 1).DeathTimer = 0;
+		End;
+		Heal(Closest Player To(Event Player, Team 1), Null, 99999);
+	}
+}
+
+rule("Death")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Event Player.DeathTimer == 100;
+		Has Status(Event Player, Asleep) == True;
+	}
+
+	actions
+	{
+		Set Invisible(Event Player, All);
+		Set Primary Fire Enabled(Event Player, False);
+		Set Secondary Fire Enabled(Event Player, False);
+		Set Status(Event Player, Null, Phased Out, 9999);
+		Create HUD Text(Event Player, Custom String(
+			"You are Dead. You can still move around, but you have to wait for game to be restarted to participate"), Null, Null, Top, 0,
+			Orange, Orange, Orange, Visible To and String, Default Visibility);
+		Create Icon(All Players(All Teams), Event Player, Skull, Visible To and Position, White, False);
+		Clear Status(Event Player, Asleep);
+		Set Ability 2 Enabled(Event Player, False);
+		Set Ultimate Ability Enabled(Event Player, False);
+		Heal(Event Player, Null, 9999);
+		Destroy Effect(Event Player.OrbEffect);
+	}
+}
+
+disabled rule("[TESTING] Force Serum on Host")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Host Player == Event Player;
+	}
+
+	actions
+	{
+		Event Player.HasSerum = True;
+	}
+}
+
+rule("Hide outline")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Global.ArePlayersLoaded == True;
+	}
+
+	actions
+	{
+		Start Forcing Player Outlines(Event Player, All Players(All Teams), False, White);
+		Disable Nameplates(Event Player, All Players(All Teams));
+		"We're assuming this will work, even though its not at the moment. All depends on this"
+		Disable Messages(All Players(All Teams));
+	}
+}
+
+disabled rule("DELETEME")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Chase Global Variable At Rate(InfectedList, Vector(287.786, -23.164, -68.789), 1, Destination and Rate);
+	}
+}
+
+rule("Create teleporter spots")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		disabled Global.EndOfRound == True;
+		Global.CreateEffectReadyToRun == True;
+	}
+
+	actions
+	{
+		For Global Variable(CreateEffectLooper, 0, Count Of(Global.TeleporterPositionsArray), 1);
+			For Global Variable(CreateEffectSubLooper, 0, Count Of(Global.TeleporterPositionsArray[Global.CreateEffectLooper]), 1);
+				Global.TestyourValues = Global.TeleporterPositionsArray[Global.CreateEffectLooper][Global.CreateEffectSubLooper];
+				Global.testery = Y Component Of(Global.TestyourValues);
+				Global.testerx = X Component Of(Global.TestyourValues);
+				Global.testerz = Z Component Of(Global.TestyourValues);
+				Create Effect(All Players(All Teams), Light Shaft, White, Vector(Global.testerx, Global.testery, Global.testerz), 1, None);
+			End;
+		End;
+	}
+}
+
+rule("Ruins -> LightHouse")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is True For Any(Global.TeleporterPositionsArray[0], Array Contains(Players Within Radius(Current Array Element, 1, All Teams, Off),
+			Event Player) == True) == True;
+		Global.Round1End == True;
+	}
+
+	actions
+	{
+		For Player Variable(Event Player, RuinsToLightHouseLooper, 0, Count Of(Global.TeleporterPositionsArray[0]), 1);
+			If(Array Contains(Players Within Radius(Global.TeleporterPositionsArray[0][Event Player.RuinsToLightHouseLooper], 1, All Teams,
+				Off), Event Player));
+				Teleport(Event Player, Global.TeleporterPositionsArray[1][Event Player.RuinsToLightHouseLooper]);
+			End;
+		End;
+	}
+}
+
+rule("LightHouse -> Well")
+{
+	event
+	{
+		Ongoing - Each Player;
+		All;
+		All;
+	}
+
+	conditions
+	{
+		Is True For Any(Global.TeleporterPositionsArray[1], Array Contains(Players Within Radius(Current Array Element, 1, All Teams, Off),
+			Event Player) == True) == True;
+		Global.Round2End == True;
+	}
+
+	actions
+	{
+		Enable Inspector Recording;
+		For Player Variable(Event Player, RuinsToLightHouseLooper, 0, Count Of(Global.TeleporterPositionsArray[1]), 1);
+			If(Array Contains(Players Within Radius(Global.TeleporterPositionsArray[1][Event Player.RuinsToLightHouseLooper], 1, All Teams,
+				Off), Event Player));
+				Teleport(Event Player, Global.TeleporterPositionsArray[2][Event Player.RuinsToLightHouseLooper]);
+			End;
+		End;
+		Disable Inspector Recording;
+	}
+}
+
+rule("[TESTING] Set Round Variables")
+{
+	event
+	{
+		Ongoing - Global;
+	}
+
+	actions
+	{
+		Global.Round2End = True;
+	}
+}
